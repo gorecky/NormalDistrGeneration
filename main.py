@@ -14,39 +14,35 @@ def generateV():
 
 class MySimpleAlgorithm:
 
-    name = '4.5.1 Simple Algorithm'
+    name = 'Simple'
 
     def generate(self,mu,sigma,n):
         
         Y = np.zeros((n),dtype=float)
         for elem in range(n):
-            X = [generateU() for i in range(12)]
-            Y[elem] = (np.sum(X) - 6.)*sigma + mu
+            Y[elem] = (np.sum([generateU() for i in range(12)]) - 6.)*sigma + mu
         
         return Y
 
 class BoxMullerAlgorithm:
 
-    name = '4.5.2 Box–Muller algorithm'
+    name = 'Box–Mul'
 
     def generate(self,mu,sigma,n):
         
         Y = np.zeros((n),dtype=float)
         for elem in range(0,n,2):
-            U1 = generateU()
-            U2 = generateU()
-            Phi = 2. * np.pi * U1
-            R = np.sqrt(-2.* np.log(U2))
+            Phi = 2. * np.pi * generateU()
+            R = np.sqrt(-2.* np.log(generateU()))
             Y[elem]   = R * np.cos(Phi)
             Y[elem+1] = R * np.sin(Phi)
 
         return Y
 
 
-
 class MarsagliaPolarAlgorithm:
 
-    name = '4.5.3 Marsaglia’s polar algorithm'
+    name = 'Ma pol'
 
     def generate(self,mu,sigma,n):
         
@@ -56,7 +52,7 @@ class MarsagliaPolarAlgorithm:
             while True:
                 U1 = 2.0 * generateU() - 1.0
                 U2 = 2.0 * generateU() - 1.0
-                W = U1**2.0 + U2**2.0
+                W = U1*U1 + U2*U2
                 if (W < 1.):
                     break
 
@@ -69,16 +65,16 @@ class MarsagliaPolarAlgorithm:
 
 class MarsagliaBrayAlgorithm:
 
-    name = '4.5.4 Marsaglia–Bray algorithm'
+    name = 'Ma-Bray'
 
     def generate(self,mu,sigma,n):
         
+        # According to: https://www.doc.ic.ac.uk/~wl/papers/07/csur07dt.pdf
+
         p1 = .8638
         p2 = .1107
         p3 = .0228002039
         p4 = 1. - (p1 + p2 + p3)
-
-
 
         a = 17.49731196
         b = 4.73570326
@@ -138,9 +134,9 @@ class MarsagliaBrayAlgorithm:
 
 class InversionMethod:
 
+    name = 'Invers'
 
-
-    name = '4.x.x Inversion Method'
+    # norm.ppf gives the inverse of gauss CDF, with mu=0 and sigma=1.
 
     def generate(self,mu,sigma,n):
         
@@ -154,7 +150,7 @@ class InversionMethod:
 class NumpyRandom:
     """numpy normal distribution"""
     
-    name = 'numpy.random.normal'
+    name = 'np.rndm'
 
     def generate(self,mu,sigma,n):
         return np.random.normal(mu,sigma,n)
@@ -163,7 +159,7 @@ class NumpyRandom:
 class RandomNormalvariate:
     """numpy normal distribution"""
     
-    name = 'random.normalvariate'
+    name = 'nrmvar'
 
     def generate(self,mu,sigma,n):
         return [random.normalvariate(mu, sigma) for i in range(n)]
@@ -171,7 +167,7 @@ class RandomNormalvariate:
 class RandomGauss:
     """numpy normal distribution"""
     
-    name = 'random.gauss'
+    name = 'gauss'
 
     def generate(self,mu,sigma,n):
         return [random.gauss(mu, sigma) for i in range(n)]
@@ -180,7 +176,7 @@ class RandomGauss:
 class NormalDistribution:
     """A simple example generating population with normal distribution"""
 
-    def __init__(self,mu,sigma,n,strategy=NumpyRandom()):
+    def __init__(self,n,mu=0,sigma=1.0,strategy=NumpyRandom()):
 
         self.n        = n
         self.mu       = mu
@@ -191,14 +187,20 @@ class NormalDistribution:
         self.population = strategy.generate(self.mu, self.sigma, self.n)
         end = time.time()
 
-        print("Strategy         : ",strategy.name)
-        print("Time elapsed     : ",end-start)
-        print('Population mean  : ',np.mean(self.population))
-        print('Population st.dev: ',np.std(self.population))
+        self.name = strategy.name
+        self.time = end-start
+        self.mean = np.mean(self.population)
+        self.stdv = np.std(self.population)
 
-    def plot_histogram(self):
+        # print("Strategy         : ",strategy.name)
+        # print("Time elapsed     : ",end-start)
+        # print('Population mean  : ',np.mean(self.population))
+        # print('Population st.dev: ',np.std(self.population))
 
-        plt.hist(self.population, density=True, bins=100)
+    def plot_histogram(self,title):
+
+        plt.hist(self.population, density=True, bins=1000)
+        plt.title(title)
         plt.ylabel('Probability')
         plt.xlabel('Data')
 
@@ -207,10 +209,77 @@ class NormalDistribution:
 
 if __name__ == '__main__':
 
-    normal_dist = NormalDistribution(0,1,100000,strategy=MarsagliaBrayAlgorithm())
-    #normal_dist = NormalDistribution(0,1,10000,strategy=MySimpleAlgorithm())
 
-    normal_dist.plot_histogram()
+    # Set up parameters.
+    n_samples = 1000
+    n_repetitions = 100
+
+    strategies = [ MySimpleAlgorithm(),
+                   BoxMullerAlgorithm(),
+                   MarsagliaPolarAlgorithm(),
+                   MarsagliaBrayAlgorithm(),
+                   InversionMethod(),
+                   NumpyRandom(),
+                   RandomNormalvariate(),
+                   RandomGauss() 
+                   ]
+
+    names = []
+    for i_strategy in range(len(strategies)):
+        names.append(strategies[i_strategy].name[:8])
+
+
+    means = np.zeros((len(strategies),n_repetitions),dtype=float)
+    stdvs = np.zeros((len(strategies),n_repetitions),dtype=float)
+    times = np.zeros((len(strategies),n_repetitions),dtype=float)
+
+    for i_repeat in range(n_repetitions):
+        print('repetition: ', i_repeat)
+
+        for i_strategy in range(len(strategies)):
+
+            normal_dist = NormalDistribution(n=n_samples,strategy=strategies[i_strategy])
+
+            means[i_strategy,i_repeat] = normal_dist.mean
+            stdvs[i_strategy,i_repeat] = normal_dist.stdv
+            times[i_strategy,i_repeat] = normal_dist.time
+
+
+    # Plot figure.
+    plt.figure()
+
+    # Mean of means.
+    plt.subplot(221)
+    plt.bar(names,np.mean(means,axis=1))
+    plt.title('Mean of means')
+
+    # Standard deviation of means.
+    plt.subplot(222)
+    plt.bar(names,np.std(means,axis=1))
+    plt.title('Standard deviation of means')
+
+    # linear
+    plt.subplot(223)
+    plt.bar(names,np.mean(stdvs-1,axis=1))
+    plt.title('Mean of standard deviations minus 1')
+
+    # symmetric log
+    plt.subplot(224)
+    plt.bar(names,np.mean(times,axis=1))
+    plt.yscale('symlog')
+    plt.title('Mean of time (seconds)')
+
+    plt.show()
+
+
+    
+    # # Plot histogram.
+
+    # for i_strategy in range(len(strategies)):
+
+    #     normal_dist = NormalDistribution(n=n_samples,strategy=strategies[i_strategy])
+    #     normal_dist.plot_histogram(strategies[i_strategy].name)
+    #     plt.show()
 
         
         
