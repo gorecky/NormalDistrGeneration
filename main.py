@@ -4,6 +4,8 @@ import time
 import random
 import statistics
 from scipy.stats import norm
+import scipy.stats as stats
+import pylab 
 
 
 def generateU():
@@ -197,9 +199,9 @@ class NormalDistribution:
         # print('Population mean  : ',np.mean(self.population))
         # print('Population st.dev: ',np.std(self.population))
 
-    def plot_histogram(self,title):
+    def plot_histogram(self,title,bins):
 
-        plt.hist(self.population, density=True, bins=1000)
+        plt.hist(self.population, density=True, bins=bins)
         plt.title(title)
         plt.ylabel('Probability')
         plt.xlabel('Data')
@@ -211,7 +213,7 @@ if __name__ == '__main__':
 
 
     # Set up parameters.
-    n_samples = 1000
+    n_samples = 10000
     n_repetitions = 100
 
     strategies = [ MySimpleAlgorithm(),
@@ -224,62 +226,87 @@ if __name__ == '__main__':
                    RandomGauss() 
                    ]
 
-    names = []
-    for i_strategy in range(len(strategies)):
-        names.append(strategies[i_strategy].name[:8])
+    task = 'repeatitions'
+    #task = 'histogram'
+    #task = 'qq-plot'
+
+    if task == 'repeatitions':
+            
+        names = []
+        for i_strategy in range(len(strategies)):
+            names.append(strategies[i_strategy].name[:8])
 
 
-    means = np.zeros((len(strategies),n_repetitions),dtype=float)
-    stdvs = np.zeros((len(strategies),n_repetitions),dtype=float)
-    times = np.zeros((len(strategies),n_repetitions),dtype=float)
+        means = np.zeros((len(strategies),n_repetitions),dtype=float)
+        stdvs = np.zeros((len(strategies),n_repetitions),dtype=float)
+        times = np.zeros((len(strategies),n_repetitions),dtype=float)
 
-    for i_repeat in range(n_repetitions):
-        print('repetition: ', i_repeat)
+        for i_repeat in range(n_repetitions):
+            print('repetition: ', i_repeat)
+
+            for i_strategy in range(len(strategies)):
+
+                normal_dist = NormalDistribution(n=n_samples,strategy=strategies[i_strategy])
+
+                means[i_strategy,i_repeat] = normal_dist.mean
+                stdvs[i_strategy,i_repeat] = normal_dist.stdv
+                times[i_strategy,i_repeat] = normal_dist.time
+
+
+        # Plot figure.
+        plt.figure()
+
+        # Mean of means.
+        plt.subplot(221)
+        plt.bar(names,np.mean(means,axis=1))
+        plt.title('Mean of means')
+
+        # Standard deviation of means.
+        plt.subplot(222)
+        plt.bar(names,np.std(means,axis=1))
+        plt.title('Standard deviation of means')
+
+        # linear
+        plt.subplot(223)
+        plt.bar(names,np.mean(stdvs-1,axis=1))
+        plt.title('Mean of standard deviations minus 1')
+
+        # symmetric log
+        plt.subplot(224)
+        plt.bar(names,np.mean(times,axis=1))
+        plt.yscale('symlog')
+        plt.title('Mean of time (seconds)')
+
+        plt.show()
+
+        print(names)
+        print(np.mean(times,axis=1))
+        print(np.mean(stdvs-1,axis=1))
+
+
+    if task == 'histogram':
+
+        # Plot histogram.
+
+        x = np.linspace(-4, 4, 100)
 
         for i_strategy in range(len(strategies)):
 
+            plt.plot(x, stats.norm.pdf(x, 0.0, 1.0),c='k')
             normal_dist = NormalDistribution(n=n_samples,strategy=strategies[i_strategy])
-
-            means[i_strategy,i_repeat] = normal_dist.mean
-            stdvs[i_strategy,i_repeat] = normal_dist.stdv
-            times[i_strategy,i_repeat] = normal_dist.time
-
-
-    # Plot figure.
-    plt.figure()
-
-    # Mean of means.
-    plt.subplot(221)
-    plt.bar(names,np.mean(means,axis=1))
-    plt.title('Mean of means')
-
-    # Standard deviation of means.
-    plt.subplot(222)
-    plt.bar(names,np.std(means,axis=1))
-    plt.title('Standard deviation of means')
-
-    # linear
-    plt.subplot(223)
-    plt.bar(names,np.mean(stdvs-1,axis=1))
-    plt.title('Mean of standard deviations minus 1')
-
-    # symmetric log
-    plt.subplot(224)
-    plt.bar(names,np.mean(times,axis=1))
-    plt.yscale('symlog')
-    plt.title('Mean of time (seconds)')
-
-    plt.show()
-
-
-    
-    # # Plot histogram.
-
-    # for i_strategy in range(len(strategies)):
-
-    #     normal_dist = NormalDistribution(n=n_samples,strategy=strategies[i_strategy])
-    #     normal_dist.plot_histogram(strategies[i_strategy].name)
-    #     plt.show()
+            normal_dist.plot_histogram(strategies[i_strategy].name,bins=100)
+            
+            plt.show()
 
         
-        
+
+    if task == 'qq-plot':
+
+        # Plot q-q.
+
+        for i_strategy in range(len(strategies)):
+
+            normal_dist = NormalDistribution(n=n_samples,strategy=strategies[i_strategy]) 
+            stats.probplot(normal_dist.population, dist="norm", fit=False, plot=plt)
+            plt.title(strategies[i_strategy].name)
+            plt.show()
